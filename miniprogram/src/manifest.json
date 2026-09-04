@@ -1,0 +1,33 @@
+{
+  "name": "服装AI运营助手",
+  "appid": "",
+  "description": "服装电商AI数字运营平台小程序端",
+  "versionName": "0.1.0",
+  "versionCode": "100",
+  "transformPx": false,
+  "mp-weixin": {
+    "appid": "",
+    "setting": {
+      "urlCheck": false,
+      "es6": true,
+      "postcss": true,
+      "minified": true
+    },
+    "usingComponents": true,
+    "permission": {}
+  },
+  "h5": {
+    "router": {
+      "mode": "hash"
+    },
+    "devServer": {
+      "port": 5174,
+      "proxy": {
+        "/api": {
+          "target": "http://localhost:8000",
+          "changeOrigin": true
+        }
+      }
+    }
+  }
+}

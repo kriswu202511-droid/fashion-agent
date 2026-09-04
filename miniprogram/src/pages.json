@@ -1,0 +1,56 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "工作台"
+      }
+    },
+    {
+      "path": "pages/agents/index",
+      "style": {
+        "navigationBarTitleText": "AI Agent"
+      }
+    },
+    {
+      "path": "pages/agent-detail/index",
+      "style": {
+        "navigationBarTitleText": "Agent 详情"
+      }
+    },
+    {
+      "path": "pages/trend/index",
+      "style": {
+        "navigationBarTitleText": "趋势洞察"
+      }
+    },
+    {
+      "path": "pages/login/index",
+      "style": {
+        "navigationBarTitleText": "登录"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "服装AI运营",
+    "navigationBarBackgroundColor": "#ffffff",
+    "backgroundColor": "#f5f5f5"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#1890ff",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "工作台"
+      },
+      {
+        "pagePath": "pages/agents/index",
+        "text": "Agent"
+      }
+    ]
+  }
+}
