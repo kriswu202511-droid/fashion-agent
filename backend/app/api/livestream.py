@@ -7,9 +7,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.registry import agent_registry
-from app.core.security import decode_access_token
+from app.core.dependencies import get_current_user
 from app.database import get_db
 from app.models.livestream_session import LivestreamMessage, LivestreamSession
+from app.models.user import User
 
 router = APIRouter()
 
@@ -44,20 +45,14 @@ class UrgentRequest(BaseModel):
     viewer_count: int = 0
 
 
-def _get_user_id(token: str) -> str:
-    payload = decode_access_token(token)
-    if not payload:
-        raise HTTPException(status_code=401, detail="无效的认证令牌")
-    return payload.get("sub", "anonymous")
-
 
 @router.post("/session")
 async def create_session(
     req: CreateSessionRequest,
-    token: str = "",
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    user_id = _get_user_id(token)
+    user_id = current_user.id
 
     session = LivestreamSession(
         user_id=user_id,
@@ -97,10 +92,10 @@ async def create_session(
 
 @router.get("/sessions")
 async def list_sessions(
-    token: str = "",
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    user_id = _get_user_id(token)
+    user_id = current_user.id
     result = await db.execute(
         select(LivestreamSession)
         .where(LivestreamSession.user_id == user_id)

@@ -4,9 +4,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.registry import agent_registry
-from app.core.security import decode_access_token
+from app.core.dependencies import get_current_user
 from app.database import get_db
 from app.models.knowledge import ChatMessage, ChatSession, KnowledgeEntry
+from app.models.user import User
 from app.services.knowledge import add_manual_entry, sync_products_to_knowledge
 from app.services.rag import rag_service
 
@@ -25,20 +26,14 @@ class KnowledgeCreateRequest(BaseModel):
     content: str
 
 
-def _get_user_id(token: str) -> str:
-    payload = decode_access_token(token)
-    if not payload:
-        raise HTTPException(status_code=401, detail="无效的认证令牌")
-    return payload.get("sub", "anonymous")
-
 
 @router.post("/chat")
 async def chat(
     req: ChatRequest,
-    token: str = "",
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    user_id = _get_user_id(token)
+    user_id = current_user.id
 
     session_id = req.session_id
     if not session_id:
@@ -92,10 +87,10 @@ async def chat(
 @router.post("/knowledge")
 async def create_knowledge(
     req: KnowledgeCreateRequest,
-    token: str = "",
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    user_id = _get_user_id(token)
+    user_id = current_user.id
     entry = await add_manual_entry(user_id, req.category, req.title, req.content, db)
     await db.commit()
     return {"id": entry.id, "title": entry.title, "category": entry.category}
@@ -103,10 +98,10 @@ async def create_knowledge(
 
 @router.post("/knowledge/sync")
 async def sync_knowledge(
-    token: str = "",
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    user_id = _get_user_id(token)
+    user_id = current_user.id
     count = await sync_products_to_knowledge(user_id, db)
     await db.commit()
     return {"synced": count, "total_in_index": rag_service.count}
@@ -114,10 +109,10 @@ async def sync_knowledge(
 
 @router.get("/knowledge")
 async def list_knowledge(
-    token: str = "",
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    user_id = _get_user_id(token)
+    user_id = current_user.id
     result = await db.execute(
         select(KnowledgeEntry)
         .where(KnowledgeEntry.user_id == user_id)
@@ -141,10 +136,10 @@ async def list_knowledge(
 @router.get("/history")
 async def chat_history(
     session_id: str | None = None,
-    token: str = "",
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    user_id = _get_user_id(token)
+    user_id = current_user.id
 
     if session_id:
         result = await db.execute(
