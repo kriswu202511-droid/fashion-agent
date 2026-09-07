@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Card, Button, Form, Select, Input, message, Typography, Space, Tag, Divider, Row, Col } from 'antd';
-import { SkinOutlined, PlayCircleOutlined } from '@ant-design/icons';
+import { Card, Button, Form, Select, Input, message, Typography, Space, Tag, Divider, Row, Col, Upload } from 'antd';
+import { SkinOutlined, PlayCircleOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { agentApi } from '@/services/agent';
 
 const { Title, Paragraph, Text } = Typography;
@@ -19,17 +19,74 @@ interface StylingResult {
   outfits?: OutfitItem[];
   general_tips?: string;
   raw_recommendation?: string;
+  photo_analysis?: string;
 }
 
 export default function StylingAgentPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<StylingResult | null>(null);
+  const [photoBase64, setPhotoBase64] = useState<string>('');
+  const [photoPreview, setPhotoPreview] = useState<string>('');
+
+  const handleImageUpload = (file: File) => {
+    const isImage = file.type.startsWith('image/');
+    if (!isImage) {
+      message.error('只能上传图片图片文件');
+      return false;
+    }
+    const isLt5M = file.size / 1024 / 1024 < 5;
+    if (!isLt5M) {
+      message.error('图片大小不能超过 5MB');
+      return false;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxWidth = 800;
+        const maxHeight = 800;
+        let { width, height } = img;
+
+        if (width > height && width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        } else if (height > maxHeight) {
+          width = (width * maxHeight) / height;
+          height = maxHeight;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+        const base64 = compressedBase64.split(',')[1];
+        setPhotoBase64(base64);
+        setPhotoPreview(compressedBase64);
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+    return false;
+  };
+
+  const handleRemovePhoto = () => {
+    setPhotoBase64('');
+    setPhotoPreview('');
+  };
 
   const handleRun = async (values: Record<string, string>) => {
     setLoading(true);
     setResult(null);
     try {
-      const { data } = await agentApi.run('styling', values);
+      const inputData = { ...values };
+      if (photoBase64) {
+        inputData.photo_base64 = photoBase64;
+      }
+      const { data } = await agentApi.run('styling', inputData);
       if (data.output_data) {
         setResult(data.output_data as unknown as StylingResult);
         message.success('穿搭方案已生成');
@@ -50,7 +107,7 @@ export default function StylingAgentPage() {
         穿搭顾问 Agent
       </Title>
       <Paragraph type="secondary">
-        根据体型、场景、风格偏好，AI 为你推荐个性化穿搭方案
+        根据体型、场景、风格偏好，AI 为你推荐个性化穿搭方案。支持上传照片，AI 自动分析穿搭元素。
       </Paragraph>
 
       <Card title="穿搭需求" style={{ marginBottom: 24 }}>
@@ -65,6 +122,36 @@ export default function StylingAgentPage() {
             season: '春季',
           }}
         >
+          <Form.Item label="上传穿搭照片（可选）">
+            {photoPreview ? (
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                <img
+                  src={photoPreview}
+                  alt="穿搭预览"
+                  style={{ maxWidth: 200, maxHeight: 200, borderRadius: 8, objectFit: 'cover' }}
+                />
+                <Button
+                  type="text"
+                  icon={<DeleteOutlined />}
+                  onClick={handleRemovePhoto}
+                  style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.5)', color: '#fff', borderRadius: '50%' }}
+                  size="small"
+                />
+              </div>
+            ) : (
+              <Upload
+                accept="image/*"
+                showUploadList={false}
+                beforeUpload={handleImageUpload}
+              >
+                <Button icon={<PlusOutlined />}>上传穿搭照片</Button>
+              </Upload>
+            )}
+            <div style={{ marginTop: 4, color: '#999', fontSize: 12 }}>
+              支持 JPG/PNG/WebP 格式，最大 5MB。上传后 AI 将自动分析照片中的穿搭元素。
+            </div>
+          </Form.Item>
+
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item label="场景" name="scene">
@@ -136,10 +223,10 @@ export default function StylingAgentPage() {
             </Col>
           </Row>
 
-          <Form.Item label="照片描述（可选）" name="photo_description">
+          <Form.Item label="补充描述（可选）" name="photo_description">
             <Input.TextArea
               rows={2}
-              placeholder="描述你的照片内容，如：穿着一件白色T恤和牛仔裤，在户外"
+              placeholder="对照片的补充描述，或其他穿搭需求"
             />
           </Form.Item>
 
@@ -157,6 +244,15 @@ export default function StylingAgentPage() {
 
       {result && (
         <Card title="推荐方案">
+          {result.photo_analysis && (
+            <>
+              <Card size="small" title="照片分析" style={{ marginBottom: 16, borderLeft: '3px solid #722ed1' }}>
+                <Paragraph style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{result.photo_analysis}</Paragraph>
+              </Card>
+              <Divider />
+            </>
+          )}
+
           {result.analysis && (
             <>
               <Paragraph>

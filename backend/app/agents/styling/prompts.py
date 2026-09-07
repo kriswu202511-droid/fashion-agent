@@ -47,13 +47,23 @@ STYLING_PROMPT = """请为以下用户推荐穿搭方案：
 
 请提供 2-3 套搭配方案。"""
 
-PHOTO_ANALYSIS_PROMPT = """请分析这张照片中的穿搭元素：
+PHOTO_ANALYSIS_PROMPT = """请仔细分析这张穿搭照片，提取以下信息并以 JSON 格式输出：
 
-照片描述（由视觉模型生成）：{photo_description}
+{
+  "garments": [
+    {
+      "type": "服装类型（如上装/下装/外套/裙装等）",
+      "description": "具体描述（款式、剪裁、面料质感）",
+      "color": "颜色描述",
+      "pattern": "花纹/图案（如有）"
+    }
+  ],
+  "overall_style": "整体风格判断（如简约/韩系/日系/欧美/复古/甜美/街头/运动/知性）",
+  "color_palette": "整体色彩搭配分析",
+  "fit": "版型/松紧度判断",
+  "occasion_suitability": "适合的场景判断",
+  "highlights": "穿搭亮点",
+  "improvements": "可改进的地方"
+}
 
-用户信息：
-- 场景：{scene}
-- 风格偏好：{style_preference}
-- 体型：{body_type}
-
-请结合照片中的穿搭元素和用户需求，给出搭配建议。"""
+请只输出 JSON，不要添加其他文字。"""

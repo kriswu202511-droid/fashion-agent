@@ -36,11 +36,12 @@ class LLMService:
 
     async def chat(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         model: str = "qwen-plus",
         temperature: float = 0.7,
         max_tokens: int = 4096,
         use_cache: bool = True,
+        timeout: float = 60,
     ) -> str:
         if use_cache:
             cache_key = cache_service.make_key(model, json.dumps(messages, ensure_ascii=False, sort_keys=True), temperature)
@@ -50,7 +51,7 @@ class LLMService:
 
         _check_rate(model)
 
-        async with httpx.AsyncClient(timeout=60) as client:
+        async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.post(
                 self.base_url,
                 headers={
@@ -75,7 +76,7 @@ class LLMService:
 
     async def chat_stream(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         model: str = "qwen-plus",
         temperature: float = 0.7,
         max_tokens: int = 4096,

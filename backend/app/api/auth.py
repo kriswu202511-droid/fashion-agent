@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from passlib.context import CryptContext
+import bcrypt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,7 +11,14 @@ from app.models.user import User
 from app.schemas.user import TokenResponse, UserCreate, UserLogin, UserResponse
 
 router = APIRouter()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+
+def verify_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode(), hashed.encode())
 
 
 @router.post("/register", response_model=TokenResponse)
@@ -25,7 +32,7 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     user = User(
         username=user_data.username,
         email=user_data.email,
-        hashed_password=pwd_context.hash(user_data.password),
+        hashed_password=hash_password(user_data.password),
         display_name=user_data.display_name or user_data.username,
     )
     db.add(user)
@@ -52,7 +59,7 @@ async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.username == credentials.username))
     user = result.scalar_one_or_none()
 
-    if not user or not pwd_context.verify(credentials.password, user.hashed_password):
+    if not user or not verify_password(credentials.password, user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误")
 
     if not user.is_active:

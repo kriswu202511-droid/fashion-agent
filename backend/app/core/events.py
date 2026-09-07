@@ -1,9 +1,12 @@
 import asyncio
+import logging
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -51,8 +54,8 @@ class EventBus:
             result = handler(event)
             if asyncio.iscoroutine(result):
                 await result
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"Event handler error: {handler.__name__} for {event.event_type}: {e}", exc_info=True)
 
     def get_history(self, limit: int = 50) -> list[Event]:
         return self._history[-limit:]

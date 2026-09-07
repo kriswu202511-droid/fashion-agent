@@ -1,0 +1,56 @@
+{
+  "manifest_version": 3,
+  "name": "服装直播AI助手",
+  "version": "0.1.0",
+  "description": "实时直播弹幕AI回复助手 - 支持抖音、淘宝、快手、小红书",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "https://live.douyin.com/*",
+    "https://live.taobao.com/*",
+    "https://*.taobao.com/*",
+    "https://live.kuaishou.com/*",
+    "https://www.xiaohongshu.com/*",
+    "https://*.xiaohongshu.com/*",
+    "http://47.102.219.206/*",
+    "http://localhost:8000/*",
+    "http://127.0.0.1:8000/*"
+  ],
+  "background": {
+    "service_worker": "src/background/index.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://live.douyin.com/*",
+        "https://live.taobao.com/*",
+        "https://*.taobao.com/*",
+        "https://live.kuaishou.com/*",
+        "https://www.xiaohongshu.com/*",
+        "https://*.xiaohongshu.com/*"
+      ],
+      "js": ["src/content/index.ts"],
+      "run_at": "document_idle"
+    }
+  ],
+  "side_panel": {
+    "default_path": "src/sidepanel/index.html"
+  },
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

@@ -15,6 +15,8 @@ class LivestreamSession(Base):
     title: Mapped[str] = mapped_column(String(200), default="")
     status: Mapped[str] = mapped_column(String(20), default="pending")
     script: Mapped[str] = mapped_column(Text, default="")
+    platform: Mapped[str] = mapped_column(String(20), default="douyin")
+    room_url: Mapped[str] = mapped_column(String(500), default="")
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
