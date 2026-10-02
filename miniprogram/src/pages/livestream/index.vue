@@ -188,7 +188,8 @@ function onPlatformChange(e: { detail: { value: number } }) {
 async function loadSessions() {
   loading.value = true;
   try {
-    sessions.value = await get<LivestreamSession[]>('/livestream/sessions');
+    const res = await get<{ items: LivestreamSession[] }>('/livestream/sessions');
+    sessions.value = res.items;
   } catch (err) {
     uni.showToast({ title: '加载失败', icon: 'none' });
   } finally {

@@ -5,12 +5,13 @@ from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.registry import agent_registry
 from app.core.dependencies import get_current_user
 from app.core.events import Event, event_bus
+from app.core.quota import check_quota
 from app.database import get_db
 from app.models.livestream_session import LivestreamMessage, LivestreamSession
 from app.models.user import User
@@ -89,6 +90,7 @@ async def create_session(
 
     agent = agent_registry.get("livestream")
     if agent:
+        await check_quota("livestream", current_user, db)
         result = await agent.run({
             "mode": "script",
             "theme": req.theme,
@@ -116,37 +118,56 @@ async def create_session(
 
 @router.get("/sessions")
 async def list_sessions(
+    page: int = 1,
+    page_size: int = 20,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     user_id = current_user.id
+    base_where = LivestreamSession.user_id == user_id
+    total = (await db.execute(
+        select(func.count()).select_from(LivestreamSession).where(base_where)
+    )).scalar() or 0
+
     result = await db.execute(
         select(LivestreamSession)
-        .where(LivestreamSession.user_id == user_id)
+        .where(base_where)
         .order_by(LivestreamSession.created_at.desc())
-        .limit(20)
+        .offset((page - 1) * page_size)
+        .limit(page_size)
     )
     sessions = result.scalars().all()
-    return [
-        {
-            "id": s.id,
-            "title": s.title,
-            "status": s.status,
-            "created_at": s.created_at.isoformat() if s.created_at else None,
-            "started_at": s.started_at.isoformat() if s.started_at else None,
-        }
-        for s in sessions
-    ]
+    return {
+        "items": [
+            {
+                "id": s.id,
+                "title": s.title,
+                "status": s.status,
+                "created_at": s.created_at.isoformat() if s.created_at else None,
+                "started_at": s.started_at.isoformat() if s.started_at else None,
+            }
+            for s in sessions
+        ],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
 
 
 @router.get("/session/{session_id}")
-async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
+async def get_session(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     result = await db.execute(
         select(LivestreamSession).where(LivestreamSession.id == session_id)
     )
     session = result.scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
+    if session.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权访问此会话")
 
     msg_result = await db.execute(
         select(LivestreamMessage)
@@ -177,13 +198,19 @@ async def get_session(session_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/session/{session_id}/start")
-async def start_session(session_id: str, db: AsyncSession = Depends(get_db)):
+async def start_session(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     result = await db.execute(
         select(LivestreamSession).where(LivestreamSession.id == session_id)
     )
     session = result.scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
+    if session.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权访问此会话")
 
     session.status = "live"
     session.started_at = datetime.utcnow()
@@ -192,13 +219,19 @@ async def start_session(session_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/session/{session_id}/end")
-async def end_session(session_id: str, db: AsyncSession = Depends(get_db)):
+async def end_session(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     result = await db.execute(
         select(LivestreamSession).where(LivestreamSession.id == session_id)
     )
     session = result.scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
+    if session.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权访问此会话")
 
     session.status = "ended"
     session.ended_at = datetime.utcnow()
@@ -210,6 +243,7 @@ async def end_session(session_id: str, db: AsyncSession = Depends(get_db)):
 async def send_danmaku(
     session_id: str,
     req: DanmakuInput,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -218,10 +252,14 @@ async def send_danmaku(
     session = result.scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
+    if session.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权访问此会话")
 
     agent = agent_registry.get("livestream")
     if not agent:
         raise HTTPException(status_code=500, detail="直播 Agent 未注册")
+
+    await check_quota("livestream", current_user, db)
 
     full_response = ""
     category = "其他"
@@ -259,6 +297,7 @@ async def send_danmaku(
 async def get_rhythm_suggestion(
     session_id: str,
     req: RhythmRequest,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -267,10 +306,14 @@ async def get_rhythm_suggestion(
     session = result.scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
+    if session.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权访问此会话")
 
     agent = agent_registry.get("livestream")
     if not agent:
         raise HTTPException(status_code=500, detail="直播 Agent 未注册")
+
+    await check_quota("livestream", current_user, db)
 
     agent_result = await agent.run({
         "mode": "rhythm",
@@ -288,6 +331,7 @@ async def get_rhythm_suggestion(
 async def generate_urgent(
     session_id: str,
     req: UrgentRequest,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -296,10 +340,14 @@ async def generate_urgent(
     session = result.scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
+    if session.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权访问此会话")
 
     agent = agent_registry.get("livestream")
     if not agent:
         raise HTTPException(status_code=500, detail="直播 Agent 未注册")
+
+    await check_quota("livestream", current_user, db)
 
     agent_result = await agent.run({
         "mode": "urgent",
@@ -330,6 +378,8 @@ async def extension_connect(
     db.add(session)
     await db.commit()
     await db.refresh(session)
+
+    await check_quota("livestream", current_user, db)
 
     async def _generate_script():
         from app.database import async_session
@@ -432,6 +482,7 @@ async def batch_danmaku(
     session_id: str,
     req: BatchDanmakuRequest,
     background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -440,6 +491,10 @@ async def batch_danmaku(
     session = result.scalar_one_or_none()
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
+    if session.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权访问此会话")
+
+    await check_quota("livestream", current_user, db, count=len(req.messages))
 
     background_tasks.add_task(
         _process_danmaku_batch,

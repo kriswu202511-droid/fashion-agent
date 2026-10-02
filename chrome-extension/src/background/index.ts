@@ -50,7 +50,7 @@ async function getConfig(): Promise<{ backendUrl: string; token: string }> {
     chrome.storage.local.get(["backendUrl", "token"], (result) => {
       resolve({
         backendUrl: result.backendUrl || DEFAULT_BACKEND_URL,
-        token: result.token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2NTExZTEzMi1jMjRmLTQzYjktYTkxNi1jMWU0NDkxYmZhNWEiLCJleHAiOjE3ODkwNDA1MDJ9.PFQX-0NqLEo0t43uRUJNTWkf-rdOHemUtHCjenoxZyk",
+        token: result.token || "",
       });
     });
   });
@@ -155,6 +155,10 @@ async function handleExtensionConnect(
   lastProducts = products;
 
   const config = await getConfig();
+  if (!config.token) {
+    console.log("[CONNECT] No token configured, please set it in extension settings");
+    return { error: "No token configured" };
+  }
   const url = `${config.backendUrl}/api/livestream/extension/connect`;
   console.log("[CONNECT] Creating new session via API:", url);
   try {
@@ -203,6 +207,10 @@ async function handleBatchDanmaku(messages: DanmakuMessage[], currentTopic: stri
     return;
   }
   const config = await getConfig();
+  if (!config.token) {
+    console.log("[DANMAKU] No token configured, please set it in extension settings");
+    return { error: "No token configured" };
+  }
   const url = `${config.backendUrl}/api/livestream/session/${sessionId}/danmaku/batch`;
   console.log(`[DANMAKU] Sending ${messages.length} messages to session ${sessionId}`, url);
   try {

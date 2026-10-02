@@ -1,4 +1,5 @@
 import api from './api';
+import type { PaginatedResponse } from '@/types';
 
 export interface CSReply {
   session_id: string;
@@ -35,8 +36,8 @@ export const csApi = {
     });
   },
 
-  listKnowledge() {
-    return api.get<KnowledgeItem[]>('/cs/knowledge');
+  listKnowledge(page: number = 1, page_size: number = 20) {
+    return api.get<PaginatedResponse<KnowledgeItem>>('/cs/knowledge', { params: { page, page_size } });
   },
 
   createKnowledge(data: { category: string; title: string; content: string }) {
@@ -47,7 +48,7 @@ export const csApi = {
     return api.post<{ synced: number; total_in_index: number }>('/cs/knowledge/sync');
   },
 
-  history(sessionId?: string) {
-    return api.get<ChatMsg[]>('/cs/history', { params: { session_id: sessionId } });
+  history(sessionId?: string, page: number = 1, page_size: number = 20) {
+    return api.get<PaginatedResponse<ChatMsg>>('/cs/history', { params: { session_id: sessionId, page, page_size } });
   },
 };

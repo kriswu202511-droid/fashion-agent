@@ -1,4 +1,5 @@
 import api from './api';
+import type { PaginatedResponse } from '@/types';
 
 export interface LivestreamSession {
   id: string;
@@ -33,8 +34,8 @@ export const livestreamApi = {
     return api.post<LivestreamSession>('/livestream/session', data);
   },
 
-  listSessions() {
-    return api.get<LivestreamSession[]>('/livestream/sessions');
+  listSessions(page: number = 1, page_size: number = 20) {
+    return api.get<PaginatedResponse<LivestreamSession>>('/livestream/sessions', { params: { page, page_size } });
   },
 
   getSession(sessionId: string) {

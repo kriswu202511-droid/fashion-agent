@@ -10,15 +10,26 @@ from app.api.ws import router as ws_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from app.database import engine
-    from app.models import Base
+    from alembic.config import Config
+    from alembic import command
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    alembic_cfg = Config("alembic.ini")
+    try:
+        command.upgrade(alembic_cfg, "head")
+    except Exception:
+        from app.models import Base
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+    from app.core import redis_client
+    await redis_client.connect()
 
     from app.agents.registry import agent_registry
     agent_registry.discover()
 
     yield
+
+    await redis_client.disconnect()
 
 
 app = FastAPI(

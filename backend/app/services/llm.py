@@ -45,7 +45,7 @@ class LLMService:
     ) -> str:
         if use_cache:
             cache_key = cache_service.make_key(model, json.dumps(messages, ensure_ascii=False, sort_keys=True), temperature)
-            cached = cache_service.get(cache_key)
+            cached = await cache_service.get(cache_key)
             if cached is not None:
                 return cached
 
@@ -70,7 +70,7 @@ class LLMService:
             result = data["choices"][0]["message"]["content"]
 
         if use_cache:
-            cache_service.set(cache_key, result, ttl=600)
+            await cache_service.set(cache_key, result, ttl=600)
 
         return result
 

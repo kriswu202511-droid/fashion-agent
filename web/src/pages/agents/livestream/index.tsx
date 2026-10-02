@@ -30,7 +30,7 @@ export default function LivestreamPage() {
     setLoading(true);
     try {
       const res = await livestreamApi.listSessions();
-      setSessions(res.data);
+      setSessions(res.data.items);
     } catch {
       // ignore
     } finally {

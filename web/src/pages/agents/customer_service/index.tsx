@@ -131,7 +131,7 @@ function KnowledgeTab() {
     setLoading(true);
     try {
       const res = await csApi.listKnowledge();
-      setItems(res.data);
+      setItems(res.data.items);
     } catch {
       // ignore
     } finally {

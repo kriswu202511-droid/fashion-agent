@@ -10,6 +10,7 @@ from app.database import get_db
 from app.models.agent_task import AgentTask, TaskStatus
 from app.models.billing import Subscription, UsageRecord
 from app.models.user import User
+from app.services.cache import cache_service
 
 router = APIRouter()
 
@@ -49,6 +50,11 @@ async def get_stats(
     _admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
+    cache_key = "api:admin:stats"
+    cached = await cache_service.get(cache_key)
+    if cached is not None:
+        return StatsResponse(**cached)
+
     now = datetime.utcnow()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -113,7 +119,7 @@ async def get_stats(
     ).scalar() or 0
     health = "healthy" if failed_today == 0 else ("degraded" if failed_today < 5 else "unhealthy")
 
-    return StatsResponse(
+    result = StatsResponse(
         total_users=total_users,
         active_users=active_users,
         new_users_today=new_users_today,
@@ -126,6 +132,8 @@ async def get_stats(
         subscriptions_by_plan=subscriptions_by_plan,
         system_health=health,
     )
+    await cache_service.set(cache_key, result.model_dump(), ttl=30)
+    return result
 
 
 @router.get("/users", response_model=UsersResponse)
@@ -181,4 +189,5 @@ async def toggle_user_active(
         raise HTTPException(status_code=404, detail="用户不存在")
     user.is_active = not user.is_active
     await db.commit()
+    await cache_service.invalidate_prefix("api:admin:")
     return {"id": user.id, "is_active": user.is_active}

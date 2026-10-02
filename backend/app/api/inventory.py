@@ -18,6 +18,7 @@ from app.schemas.inventory import (
     ProductResponse,
     ProductUpdate,
 )
+from app.services.cache import cache_service
 
 router = APIRouter()
 
@@ -31,6 +32,18 @@ async def list_products(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    cache_key = cache_service.api_key(
+        "inventory:products",
+        current_user.id,
+        page=page,
+        page_size=page_size,
+        category=category,
+        keyword=keyword,
+    )
+    cached = await cache_service.get(cache_key)
+    if cached is not None:
+        return PaginatedResponse(**cached)
+
     query = select(Product).where(Product.user_id == current_user.id)
     count_query = select(func.count()).select_from(Product).where(Product.user_id == current_user.id)
 
@@ -45,10 +58,12 @@ async def list_products(
     query = query.order_by(Product.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
     products = (await db.execute(query)).scalars().all()
 
-    return PaginatedResponse(
+    result = PaginatedResponse(
         items=[ProductResponse.model_validate(p) for p in products],
         total=total, page=page, page_size=page_size,
     )
+    await cache_service.set(cache_key, result.model_dump(), ttl=60)
+    return result
 
 
 @router.post("/products", response_model=ProductResponse)
@@ -61,6 +76,7 @@ async def create_product(
     db.add(product)
     await db.commit()
     await db.refresh(product)
+    await cache_service.invalidate_prefix(f"api:inventory:products:{current_user.id}:")
     return product
 
 
@@ -82,6 +98,7 @@ async def update_product(
         setattr(product, key, value)
     await db.commit()
     await db.refresh(product)
+    await cache_service.invalidate_prefix(f"api:inventory:products:{current_user.id}:")
     return product
 
 
@@ -99,6 +116,7 @@ async def delete_product(
         raise HTTPException(status_code=404, detail="商品不存在")
     await db.delete(product)
     await db.commit()
+    await cache_service.invalidate_prefix(f"api:inventory:products:{current_user.id}:")
     return {"message": "已删除"}
 
 
@@ -185,13 +203,27 @@ async def create_inventory_item(
     return item
 
 
-@router.get("/inventory", response_model=list[InventoryItemResponse])
+@router.get("/inventory", response_model=PaginatedResponse[InventoryItemResponse])
 async def list_inventory(
+    page: int = 1,
+    page_size: int = 20,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    base_where = InventoryItem.user_id == current_user.id
+    total = (await db.execute(
+        select(func.count()).select_from(InventoryItem).where(base_where)
+    )).scalar() or 0
+
     result = await db.execute(
-        select(InventoryItem).where(InventoryItem.user_id == current_user.id)
+        select(InventoryItem)
+        .where(base_where)
+        .order_by(InventoryItem.updated_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
     )
     items = result.scalars().all()
-    return [InventoryItemResponse.model_validate(i) for i in items]
+    return PaginatedResponse(
+        items=[InventoryItemResponse.model_validate(i) for i in items],
+        total=total, page=page, page_size=page_size,
+    )

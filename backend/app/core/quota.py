@@ -10,16 +10,17 @@ from app.models.user import User
 
 async def check_quota(
     agent_name: str,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
+    user: User,
+    db: AsyncSession,
+    count: int = 1,
+) -> Subscription:
     result = await db.execute(
-        select(Subscription).where(Subscription.user_id == current_user.id)
+        select(Subscription).where(Subscription.user_id == user.id)
     )
     sub = result.scalar_one_or_none()
 
     if not sub:
-        sub = Subscription(user_id=current_user.id, plan="free")
+        sub = Subscription(user_id=user.id, plan="free")
         db.add(sub)
         await db.commit()
         await db.refresh(sub)
@@ -38,6 +39,6 @@ async def check_quota(
             detail=f"本月 Agent 调用次数已达上限({sub.agent_quota})，请升级套餐",
         )
 
-    sub.agents_used += 1
+    sub.agents_used += count
     await db.commit()
     return sub

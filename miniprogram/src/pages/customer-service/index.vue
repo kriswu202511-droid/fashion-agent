@@ -159,7 +159,8 @@ async function sendMessage() {
 
 async function loadKnowledge() {
   try {
-    knowledgeList.value = await get<KnowledgeItem[]>('/cs/knowledge');
+    const res = await get<{ items: KnowledgeItem[] }>('/cs/knowledge');
+    knowledgeList.value = res.items;
   } catch (err) {
     console.error('加载知识库失败', err);
   }

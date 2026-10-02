@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.registry import agent_registry
 from app.core.dependencies import get_current_user
+from app.core.quota import check_quota
 from app.database import get_db
 from app.models.user import User
 from app.schemas.agent import AgentInfo, AgentRunRequest, AgentRunResponse
@@ -34,6 +35,8 @@ async def run_agent(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await check_quota(request.agent_name, current_user, db)
+
     task = await agent_executor.execute(
         agent_name=request.agent_name,
         input_data=request.input_data,

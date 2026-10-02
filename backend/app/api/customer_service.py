@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.registry import agent_registry
 from app.core.dependencies import get_current_user
+from app.core.quota import check_quota
 from app.database import get_db
 from app.models.knowledge import ChatMessage, ChatSession, KnowledgeEntry
 from app.models.user import User
@@ -46,6 +47,8 @@ async def chat(
     agent = agent_registry.get("customer_service")
     if not agent:
         raise HTTPException(status_code=500, detail="客服 Agent 未注册")
+
+    await check_quota("customer_service", current_user, db)
 
     result = await agent.run({"question": req.question})
 
@@ -109,32 +112,47 @@ async def sync_knowledge(
 
 @router.get("/knowledge")
 async def list_knowledge(
+    page: int = 1,
+    page_size: int = 20,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     user_id = current_user.id
+    base_where = KnowledgeEntry.user_id == user_id
+    total = (await db.execute(
+        select(func.count()).select_from(KnowledgeEntry).where(base_where)
+    )).scalar() or 0
+
     result = await db.execute(
         select(KnowledgeEntry)
-        .where(KnowledgeEntry.user_id == user_id)
+        .where(base_where)
         .order_by(KnowledgeEntry.created_at.desc())
-        .limit(100)
+        .offset((page - 1) * page_size)
+        .limit(page_size)
     )
     entries = result.scalars().all()
-    return [
-        {
-            "id": e.id,
-            "category": e.category,
-            "title": e.title,
-            "content": e.content,
-            "source": e.source,
-            "created_at": e.created_at.isoformat() if e.created_at else None,
-        }
-        for e in entries
-    ]
+    return {
+        "items": [
+            {
+                "id": e.id,
+                "category": e.category,
+                "title": e.title,
+                "content": e.content,
+                "source": e.source,
+                "created_at": e.created_at.isoformat() if e.created_at else None,
+            }
+            for e in entries
+        ],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
 
 
 @router.get("/history")
 async def chat_history(
+    page: int = 1,
+    page_size: int = 20,
     session_id: str | None = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -142,35 +160,42 @@ async def chat_history(
     user_id = current_user.id
 
     if session_id:
-        result = await db.execute(
-            select(ChatMessage)
-            .where(ChatMessage.session_id == session_id)
-            .order_by(ChatMessage.created_at)
-            .limit(100)
-        )
+        target_session_id = session_id
     else:
         sessions_result = await db.execute(
             select(ChatSession).where(ChatSession.user_id == user_id).limit(1)
         )
         session = sessions_result.scalar_one_or_none()
         if not session:
-            return []
-        result = await db.execute(
-            select(ChatMessage)
-            .where(ChatMessage.session_id == session.id)
-            .order_by(ChatMessage.created_at)
-            .limit(100)
-        )
+            return {"items": [], "total": 0, "page": page, "page_size": page_size}
+        target_session_id = session.id
 
+    base_where = ChatMessage.session_id == target_session_id
+    total = (await db.execute(
+        select(func.count()).select_from(ChatMessage).where(base_where)
+    )).scalar() or 0
+
+    result = await db.execute(
+        select(ChatMessage)
+        .where(base_where)
+        .order_by(ChatMessage.created_at)
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
     messages = result.scalars().all()
-    return [
-        {
-            "id": m.id,
-            "role": m.role,
-            "content": m.content,
-            "confidence": m.confidence,
-            "need_human": m.need_human,
-            "created_at": m.created_at.isoformat() if m.created_at else None,
-        }
-        for m in messages
-    ]
+    return {
+        "items": [
+            {
+                "id": m.id,
+                "role": m.role,
+                "content": m.content,
+                "confidence": m.confidence,
+                "need_human": m.need_human,
+                "created_at": m.created_at.isoformat() if m.created_at else None,
+            }
+            for m in messages
+        ],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
