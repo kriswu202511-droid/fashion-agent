@@ -42,7 +42,24 @@
       <text class="section-title">快捷操作</text>
       <view class="quick-actions">
         <view class="action-btn" @click="goTrend">
-          <text class="action-text">查看趋势报告</text>
+          <text class="action-text">趋势洞察</text>
+        </view>
+        <view class="action-btn" @click="goInventory">
+          <text class="action-text">库存管理</text>
+        </view>
+        <view class="action-btn" @click="goData">
+          <text class="action-text">数据分析</text>
+        </view>
+      </view>
+      <view class="quick-actions" style="margin-top: 16rpx;">
+        <view class="action-btn" @click="goLivestream">
+          <text class="action-text">直播助手</text>
+        </view>
+        <view class="action-btn" @click="goCustomerService">
+          <text class="action-text">智能客服</text>
+        </view>
+        <view class="action-btn" @click="goStyling">
+          <text class="action-text">穿搭顾问</text>
         </view>
       </view>
     </view>
@@ -65,6 +82,7 @@ const labelMap: Record<string, string> = {
   data: '数据分析',
   livestream: '直播助手',
   customer_service: '客服助手',
+  styling: '穿搭顾问',
 };
 
 onMounted(() => {
@@ -77,6 +95,26 @@ function goDetail(name: string) {
 
 function goTrend() {
   uni.navigateTo({ url: '/pages/trend/index' });
+}
+
+function goInventory() {
+  uni.navigateTo({ url: '/pages/inventory/index' });
+}
+
+function goData() {
+  uni.navigateTo({ url: '/pages/data/index' });
+}
+
+function goLivestream() {
+  uni.navigateTo({ url: '/pages/livestream/index' });
+}
+
+function goCustomerService() {
+  uni.navigateTo({ url: '/pages/customer-service/index' });
+}
+
+function goStyling() {
+  uni.navigateTo({ url: '/pages/styling/index' });
 }
 </script>
 

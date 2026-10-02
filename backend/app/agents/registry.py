@@ -1,9 +1,12 @@
 import importlib
+import logging
 import pkgutil
 from pathlib import Path
 from typing import Type
 
 from app.agents.base import BaseAgent
+
+logger = logging.getLogger(__name__)
 
 
 class AgentRegistry:
@@ -24,6 +27,7 @@ class AgentRegistry:
     def discover(self):
         """自动发现并注册 agents 目录下的所有 Agent"""
         agents_dir = Path(__file__).parent
+        print(f"[AGENT REGISTRY] Discovering agents in {agents_dir}", flush=True)
         for item in agents_dir.iterdir():
             if item.is_dir() and not item.name.startswith("_"):
                 agent_file = item / "agent.py"
@@ -39,8 +43,12 @@ class AgentRegistry:
                                 and getattr(attr, "name", "")
                             ):
                                 self.register(attr)
-                    except Exception:
-                        pass
+                                print(f"[AGENT REGISTRY] Registered agent: {attr.name}", flush=True)
+                    except Exception as e:
+                        print(f"[AGENT REGISTRY] Failed to load agent from {item.name}: {e}", flush=True)
+                        import traceback
+                        traceback.print_exc()
+        print(f"[AGENT REGISTRY] Agent discovery complete: {list(self._agents.keys())}", flush=True)
 
 
 agent_registry = AgentRegistry()

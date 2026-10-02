@@ -76,6 +76,7 @@ const labelMap: Record<string, string> = {
   data: '数据分析',
   livestream: '直播助手',
   customer_service: '客服助手',
+  styling: '穿搭顾问',
 };
 
 const platforms = ['抖音', '小红书', '快手', '淘宝'];
@@ -85,8 +86,8 @@ const agentInfo = computed(() => agentStore.agents.find((a) => a.name === agentN
 
 onMounted(() => {
   const pages = getCurrentPages();
-  const page = pages[pages.length - 1];
-  agentName.value = (page.options as Record<string, string>).agent || '';
+  const page = pages[pages.length - 1] as unknown as { options?: Record<string, string> };
+  agentName.value = page.options?.agent || '';
   agentStore.fetchAgents();
 });
 

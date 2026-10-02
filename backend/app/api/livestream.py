@@ -3,7 +3,7 @@ import json
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -315,6 +315,7 @@ async def generate_urgent(
 @router.post("/extension/connect")
 async def extension_connect(
     req: ExtensionConnectRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -352,7 +353,7 @@ async def extension_connect(
         except Exception as e:
             logger.error(f"Script generation failed: {e}")
 
-    asyncio.create_task(_generate_script())
+    background_tasks.add_task(_generate_script)
 
     return {
         "session_id": session.id,
@@ -369,12 +370,15 @@ async def _process_danmaku_batch(
 ):
     from app.database import async_session
 
+    print(f"[DANMAKU] Processing batch for session {session_id}: {len(messages)} messages", flush=True)
     agent = agent_registry.get("livestream")
     if not agent:
-        logger.error(f"Livestream agent not found for session {session_id}")
+        print(f"[DANMAKU] ERROR: Livestream agent not found for session {session_id}", flush=True)
         return
+    print(f"[DANMAKU] Agent found: {agent.name}", flush=True)
 
     for msg in messages:
+        print(f"[DANMAKU] Processing message: {msg.content[:50]}", flush=True)
         full_response = ""
         category = "其他"
         try:
@@ -388,8 +392,11 @@ async def _process_danmaku_batch(
                     data = chunk.get("data", {})
                     full_response = data.get("reply", "")
                     category = data.get("category", "其他")
+            print(f"[DANMAKU] AI reply generated: {full_response[:50]}", flush=True)
         except Exception as e:
-            logger.error(f"Agent stream error for session {session_id}: {e}", exc_info=True)
+            print(f"[DANMAKU] Agent stream error for session {session_id}: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
             continue
 
         async with async_session() as db:
@@ -403,8 +410,9 @@ async def _process_danmaku_batch(
             db.add(db_msg)
             await db.commit()
             await db.refresh(db_msg)
+            print(f"[DANMAKU] Message saved to DB", flush=True)
 
-        logger.info(f"Publishing event for session {session_id}: {msg.content[:50]}...")
+        print(f"[DANMAKU] Publishing event for session {session_id}", flush=True)
         await event_bus.publish(Event(
             event_type="livestream.danmaku_reply",
             source_agent="livestream",
@@ -416,13 +424,14 @@ async def _process_danmaku_batch(
                 "category": category,
             },
         ))
-        logger.info(f"Event published for session {session_id}")
+        print(f"[DANMAKU] Event published for session {session_id}", flush=True)
 
 
 @router.post("/session/{session_id}/danmaku/batch")
 async def batch_danmaku(
     session_id: str,
     req: BatchDanmakuRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -432,11 +441,12 @@ async def batch_danmaku(
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
 
-    asyncio.create_task(_process_danmaku_batch(
+    background_tasks.add_task(
+        _process_danmaku_batch,
         session_id=session_id,
         messages=req.messages,
         current_topic=req.current_topic,
         session_title=session.title,
-    ))
+    )
 
     return {"queued": len(req.messages), "session_id": session_id}

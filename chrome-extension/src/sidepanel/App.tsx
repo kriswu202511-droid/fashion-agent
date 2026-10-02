@@ -17,6 +17,7 @@ export default function App() {
 
   useEffect(() => {
     const handler = (msg: { action: string; data?: AIReply; message?: DanmakuMessage }) => {
+      console.log("[SidePanel] Received message:", msg.action, msg);
       if (msg.action === "danmaku_captured" && msg.message) {
         setEntries((prev) => [
           ...prev,
@@ -25,6 +26,7 @@ export default function App() {
       }
       if (msg.action === "ai_reply" && msg.data) {
         const reply = msg.data;
+        console.log("[SidePanel] AI reply received for:", reply.original_message, "->", reply.reply);
         setEntries((prev) =>
           prev.map((e) =>
             e.message.content === reply.original_message && !e.reply
@@ -51,17 +53,42 @@ export default function App() {
   }, []);
 
   const handleConnect = () => {
-    chrome.runtime.sendMessage(
-      {
-        action: "connect",
-        platform: "douyin",
-        roomUrl: location.href,
-        roomTitle: document.title,
-        theme: topic || "夏季新款上新",
-        products: "",
-      },
-      () => setConnected(true)
-    );
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs[0];
+      const roomUrl = tab?.url || "";
+      const roomTitle = tab?.title || "";
+      let platform = "douyin";
+      if (tab?.id) {
+        chrome.tabs.sendMessage(tab.id, { action: "get_platform" }, (res) => {
+          if (res?.platform && res.platform !== "unknown") {
+            platform = res.platform;
+          }
+          chrome.runtime.sendMessage(
+            {
+              action: "connect",
+              platform,
+              roomUrl,
+              roomTitle,
+              theme: topic || "夏季新款上新",
+              products: "",
+            },
+            () => setConnected(true)
+          );
+        });
+      } else {
+        chrome.runtime.sendMessage(
+          {
+            action: "connect",
+            platform,
+            roomUrl,
+            roomTitle,
+            theme: topic || "夏季新款上新",
+            products: "",
+          },
+          () => setConnected(true)
+        );
+      }
+    });
   };
 
   const handleDisconnect = () => {
@@ -77,7 +104,7 @@ export default function App() {
       timestamp: Date.now(),
       platform: "manual",
     };
-    chrome.runtime.sendMessage({ action: "manual_danmaku", message });
+    chrome.runtime.sendMessage({ action: "manual_danmaku", message, currentTopic: topic });
     setEntries((prev) => [...prev, { id: crypto.randomUUID(), message }]);
     setManualContent("");
   };

@@ -2,11 +2,12 @@ import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { resolve } from "path";
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync, existsSync } from "fs";
+import { build as esbuild } from "esbuild";
 
 function chromeExtensionPlugin(): Plugin {
   return {
     name: "chrome-extension",
-    closeBundle() {
+    async closeBundle() {
       const dist = resolve(__dirname, "dist");
 
       const sidepanelDistDir = resolve(dist, "sidepanel");
@@ -46,6 +47,21 @@ function chromeExtensionPlugin(): Plugin {
           }
         }
       }
+
+      await esbuild({
+        entryPoints: [resolve(__dirname, "src/content/index.ts")],
+        bundle: true,
+        outfile: resolve(dist, "content.js"),
+        format: "iife",
+        target: "es2020",
+        define: {
+          "process.env.NODE_ENV": '"production"',
+        },
+        alias: {
+          "@": resolve(__dirname, "src"),
+        },
+      });
+      console.log("[BUILD] Content script bundled as IIFE → dist/content.js");
     },
   };
 }
@@ -63,7 +79,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         background: resolve(__dirname, "src/background/index.ts"),
-        content: resolve(__dirname, "src/content/index.ts"),
         sidepanel: resolve(__dirname, "src/sidepanel/index.tsx"),
         popup: resolve(__dirname, "src/popup/index.tsx"),
       },

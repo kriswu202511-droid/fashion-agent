@@ -1,5 +1,16 @@
 import type { DanmakuAdapter, DanmakuMessage } from "@/shared/types";
 import { DANMAKU_DEDUP_WINDOW } from "@/shared/constants";
+import { DouyinAdapter } from "./adapters/douyin";
+import { TaobaoAdapter } from "./adapters/taobao";
+import { KuaishouAdapter } from "./adapters/kuaishou";
+import { XiaohongshuAdapter } from "./adapters/xiaohongshu";
+
+(window as any).__FASHION_EXTENSION__ = { loaded: true, timestamp: Date.now() };
+
+if ((window as any).__FASHION_EXTENSION_INIT__) {
+  console.log("[CONTENT] Already initialized, skipping duplicate injection");
+} else {
+  (window as any).__FASHION_EXTENSION_INIT__ = true;
 
 let activeAdapter: DanmakuAdapter | null = null;
 let batchBuffer: DanmakuMessage[] = [];
@@ -14,26 +25,13 @@ function detectPlatform(): string {
   return "unknown";
 }
 
-async function loadAdapter(platform: string): Promise<DanmakuAdapter | null> {
+function loadAdapter(platform: string): DanmakuAdapter | null {
   switch (platform) {
-    case "douyin": {
-      const { DouyinAdapter } = await import("./adapters/douyin");
-      return new DouyinAdapter();
-    }
-    case "taobao": {
-      const { TaobaoAdapter } = await import("./adapters/taobao");
-      return new TaobaoAdapter();
-    }
-    case "kuaishou": {
-      const { KuaishouAdapter } = await import("./adapters/kuaishou");
-      return new KuaishouAdapter();
-    }
-    case "xiaohongshu": {
-      const { XiaohongshuAdapter } = await import("./adapters/xiaohongshu");
-      return new XiaohongshuAdapter();
-    }
-    default:
-      return null;
+    case "douyin": return new DouyinAdapter();
+    case "taobao": return new TaobaoAdapter();
+    case "kuaishou": return new KuaishouAdapter();
+    case "xiaohongshu": return new XiaohongshuAdapter();
+    default: return null;
   }
 }
 
@@ -76,11 +74,11 @@ function stopBatchFlush() {
   }
 }
 
-async function startCapture() {
+function startCapture() {
   const platform = detectPlatform();
   if (platform === "unknown") return;
 
-  const adapter = await loadAdapter(platform);
+  const adapter = loadAdapter(platform);
   if (!adapter || !adapter.detect()) return;
 
   activeAdapter = adapter;
@@ -108,7 +106,8 @@ function stopCapture() {
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.action === "start_capture") {
-    startCapture().then(() => sendResponse({ ok: true }));
+    startCapture();
+    sendResponse({ ok: true });
     return true;
   }
   if (msg.action === "stop_capture") {
@@ -123,3 +122,5 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 });
 
 startCapture();
+
+} // end of init guard

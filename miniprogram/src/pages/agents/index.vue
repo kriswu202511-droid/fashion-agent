@@ -36,6 +36,7 @@ const labelMap: Record<string, string> = {
   data: '数据分析',
   livestream: '直播助手',
   customer_service: '客服助手',
+  styling: '穿搭顾问',
 };
 
 function statusText(status: string) {

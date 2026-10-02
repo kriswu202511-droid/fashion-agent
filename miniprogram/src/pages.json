@@ -25,6 +25,42 @@
       }
     },
     {
+      "path": "pages/inventory/index",
+      "style": {
+        "navigationBarTitleText": "库存管理"
+      }
+    },
+    {
+      "path": "pages/data/index",
+      "style": {
+        "navigationBarTitleText": "数据分析"
+      }
+    },
+    {
+      "path": "pages/livestream/index",
+      "style": {
+        "navigationBarTitleText": "直播助手"
+      }
+    },
+    {
+      "path": "pages/customer-service/index",
+      "style": {
+        "navigationBarTitleText": "智能客服"
+      }
+    },
+    {
+      "path": "pages/styling/index",
+      "style": {
+        "navigationBarTitleText": "穿搭顾问"
+      }
+    },
+    {
+      "path": "pages/settings/index",
+      "style": {
+        "navigationBarTitleText": "设置"
+      }
+    },
+    {
       "path": "pages/login/index",
       "style": {
         "navigationBarTitleText": "登录"

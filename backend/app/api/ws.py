@@ -93,7 +93,7 @@ async def _livestream_event_handler(event: Event):
         "data": event.data,
         "timestamp": event.timestamp,
     }
-    conn_count = len(session_manager._connections.get(session_id, set()))
+    conn_count = len(session_manager._connections.get(session_id, []))
     logger.info(f"Sending event {event.event_type} to session {session_id} ({conn_count} connections)")
     await session_manager.send_to_session(session_id, payload)
 
