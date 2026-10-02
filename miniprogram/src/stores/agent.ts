@@ -23,8 +23,8 @@ export const useAgentStore = defineStore('agent', () => {
   async function fetchAgents() {
     loading.value = true;
     try {
-      const data = await get<{ agents: Agent[] }>('/agents');
-      agents.value = data.agents;
+      const data = await get<Agent[]>('/agents');
+      agents.value = data;
     } catch {
       uni.showToast({ title: '加载失败', icon: 'none' });
     } finally {
