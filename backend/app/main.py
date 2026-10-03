@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.router import api_router
 from app.api.ws import router as ws_router
+from app.config import settings
 from app.core.logging import setup_logging, get_logger
 
 
@@ -16,6 +17,7 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting application...")
+    logger.info(f"CORS origins: {settings.cors_origins}")
     
     from app.database import engine
     from alembic.config import Config
@@ -60,10 +62,10 @@ app.add_middleware(RequestLoggingMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=settings.cors_origins,
+    allow_credentials=settings.cors_credentials,
+    allow_methods=settings.cors_methods,
+    allow_headers=settings.cors_headers,
 )
 
 app.include_router(api_router, prefix="/api")
