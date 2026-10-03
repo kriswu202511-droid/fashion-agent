@@ -11,6 +11,7 @@ from app.api.customer_service import router as cs_router
 from app.api.billing import router as billing_router
 from app.api.settings import router as settings_router
 from app.api.admin import router as admin_router
+from app.api.upload import router as upload_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router, prefix="/auth", tags=["认证"])
@@ -24,3 +25,4 @@ api_router.include_router(cs_router, prefix="/cs", tags=["客服"])
 api_router.include_router(billing_router, prefix="/billing", tags=["计费"])
 api_router.include_router(settings_router, prefix="/settings", tags=["租户设置"])
 api_router.include_router(admin_router, prefix="/admin", tags=["运营管理"])
+api_router.include_router(upload_router, prefix="/upload", tags=["文件上传"])

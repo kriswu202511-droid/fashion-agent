@@ -26,15 +26,23 @@
       </view>
 
       <view v-else class="product-card" v-for="product in products" :key="product.id">
-        <view class="product-header">
-          <text class="product-name">{{ product.name }}</text>
-          <text class="product-sku">SKU: {{ product.sku }}</text>
-        </view>
-        <view class="product-info">
-          <text class="info-item">分类: {{ product.category || '未分类' }}</text>
-          <text class="info-item">价格: ¥{{ product.price.toFixed(2) }}</text>
-          <text class="info-item">成本: ¥{{ product.cost.toFixed(2) }}</text>
-          <text class="info-item" v-if="product.supplier">供应商: {{ product.supplier }}</text>
+        <view class="product-main">
+          <image v-if="product.image_url" class="product-thumb" :src="product.image_url" mode="aspectFill" />
+          <view v-else class="product-thumb placeholder">
+            <text>暂无图</text>
+          </view>
+          <view class="product-detail">
+            <view class="product-header">
+              <text class="product-name">{{ product.name }}</text>
+              <text class="product-sku">SKU: {{ product.sku }}</text>
+            </view>
+            <view class="product-info">
+              <text class="info-item">分类: {{ product.category || '未分类' }}</text>
+              <text class="info-item">价格: ¥{{ product.price.toFixed(2) }}</text>
+              <text class="info-item">成本: ¥{{ product.cost.toFixed(2) }}</text>
+              <text class="info-item" v-if="product.supplier">供应商: {{ product.supplier }}</text>
+            </view>
+          </view>
         </view>
         <view class="product-actions">
           <button class="btn-small" @click="editProduct(product)">编辑</button>
@@ -55,6 +63,17 @@
         <view class="form-group">
           <text class="label">名称 *</text>
           <input class="input" v-model="form.name" placeholder="商品名称" />
+        </view>
+
+        <view class="form-group">
+          <text class="label">商品图片</text>
+          <view class="image-upload" @click="chooseImage">
+            <image v-if="form.image_url" class="preview-image" :src="form.image_url" mode="aspectFill" />
+            <view v-else class="upload-placeholder">
+              <text>+</text>
+              <text class="upload-hint">点击上传</text>
+            </view>
+          </view>
         </view>
 
         <view class="form-group">
@@ -126,6 +145,7 @@ const form = ref({
   cost: '0',
   supplier: '',
   description: '',
+  image_url: '',
 });
 
 async function loadProducts() {
@@ -154,8 +174,38 @@ function editProduct(product: Product) {
     cost: product.cost.toString(),
     supplier: product.supplier,
     description: product.description,
+    image_url: product.image_url || '',
   };
   showAddModal.value = true;
+}
+
+function chooseImage() {
+  uni.chooseImage({
+    count: 1,
+    sizeType: ['compressed'],
+    sourceType: ['album', 'camera'],
+    success: (res) => {
+      const tempPath = res.tempFilePaths[0];
+      const token = uni.getStorageSync('token') || '';
+      uni.uploadFile({
+        url: 'http://47.102.219.206/api/upload/image',
+        filePath: tempPath,
+        name: 'file',
+        header: { Authorization: `Bearer ${token}` },
+        success: (uploadRes) => {
+          try {
+            const data = JSON.parse(uploadRes.data);
+            form.value.image_url = data.url;
+          } catch {
+            uni.showToast({ title: '上传失败', icon: 'none' });
+          }
+        },
+        fail: () => {
+          uni.showToast({ title: '上传失败', icon: 'none' });
+        },
+      });
+    },
+  });
 }
 
 async function saveProduct() {
@@ -173,6 +223,7 @@ async function saveProduct() {
       cost: parseFloat(form.value.cost) || 0,
       supplier: form.value.supplier,
       description: form.value.description,
+      image_url: form.value.image_url,
     };
 
     if (editingProduct.value) {
@@ -219,6 +270,7 @@ function closeModal() {
     cost: '0',
     supplier: '',
     description: '',
+    image_url: '',
   };
 }
 
@@ -284,6 +336,33 @@ onMounted(() => {
   background: #fff;
   border-radius: 16rpx;
   padding: 24rpx;
+}
+
+.product-main {
+  display: flex;
+  gap: 20rpx;
+  margin-bottom: 16rpx;
+}
+
+.product-thumb {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 12rpx;
+  flex-shrink: 0;
+}
+
+.product-thumb.placeholder {
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ccc;
+  font-size: 24rpx;
+}
+
+.product-detail {
+  flex: 1;
+  min-width: 0;
 }
 
 .product-header {
@@ -415,5 +494,34 @@ onMounted(() => {
 .modal-actions .btn-primary {
   flex: 1;
   padding: 20rpx 0;
+}
+
+.image-upload {
+  width: 200rpx;
+  height: 200rpx;
+  border: 2rpx dashed #d9d9d9;
+  border-radius: 12rpx;
+  overflow: hidden;
+}
+
+.preview-image {
+  width: 100%;
+  height: 100%;
+}
+
+.upload-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  font-size: 48rpx;
+}
+
+.upload-hint {
+  font-size: 24rpx;
+  margin-top: 8rpx;
 }
 </style>

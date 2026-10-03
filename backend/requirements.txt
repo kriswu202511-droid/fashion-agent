@@ -17,3 +17,4 @@ celery==5.4.0
 websockets==13.1
 faiss-cpu==1.9.0
 numpy>=1.26.0
+oss2>=2.18.0

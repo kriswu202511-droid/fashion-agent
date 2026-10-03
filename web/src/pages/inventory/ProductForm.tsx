@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
-import { Modal, Form, Input, InputNumber, Select, message } from 'antd';
+import { useEffect, useState } from 'react';
+import { Modal, Form, Input, InputNumber, Select, Upload, message } from 'antd';
+import { UploadOutlined, PlusOutlined } from '@ant-design/icons';
 import { inventoryApi, type Product } from '@/services/inventory';
 
 interface Props {
@@ -12,13 +13,17 @@ interface Props {
 export default function ProductForm({ open, product, onClose, onSuccess }: Props) {
   const [form] = Form.useForm();
   const isEdit = !!product;
+  const [imageUrl, setImageUrl] = useState<string>('');
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (open) {
       if (product) {
         form.setFieldsValue(product);
+        setImageUrl(product.image_url || '');
       } else {
         form.resetFields();
+        setImageUrl('');
       }
     }
   }, [open, product, form]);
@@ -26,11 +31,12 @@ export default function ProductForm({ open, product, onClose, onSuccess }: Props
   const handleOk = async () => {
     try {
       const values = await form.validateFields();
+      const data = { ...values, image_url: imageUrl };
       if (isEdit) {
-        await inventoryApi.updateProduct(product!.id, values);
+        await inventoryApi.updateProduct(product!.id, data);
         message.success('已更新');
       } else {
-        await inventoryApi.createProduct(values);
+        await inventoryApi.createProduct(data);
         message.success('已创建');
       }
       onSuccess();
@@ -54,6 +60,34 @@ export default function ProductForm({ open, product, onClose, onSuccess }: Props
         </Form.Item>
         <Form.Item name="name" label="商品名称" rules={[{ required: true, message: '请输入名称' }]}>
           <Input placeholder="如：碎花连衣裙" />
+        </Form.Item>
+        <Form.Item label="商品图片">
+          <Upload
+            accept=".jpg,.jpeg,.png,.webp"
+            showUploadList={false}
+            customRequest={async ({ file, onSuccess: onSuc, onError }) => {
+              setUploading(true);
+              try {
+                const res = await inventoryApi.uploadImage(file as File);
+                setImageUrl(res.data.url);
+                onSuc?.(res.data);
+              } catch (e) {
+                onError?.(e as Error);
+                message.error('上传失败');
+              } finally {
+                setUploading(false);
+              }
+            }}
+          >
+            {imageUrl ? (
+              <img src={imageUrl} alt="商品图片" style={{ width: 102, height: 102, objectFit: 'cover', borderRadius: 8 }} />
+            ) : (
+              <div>
+                {uploading ? <UploadOutlined /> : <PlusOutlined />}
+                <div style={{ marginTop: 8 }}>上传图片</div>
+              </div>
+            )}
+          </Upload>
         </Form.Item>
         <Form.Item name="category" label="品类">
           <Select

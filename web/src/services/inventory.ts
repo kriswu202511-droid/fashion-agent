@@ -57,4 +57,12 @@ export const inventoryApi = {
 
   createInventoryItem: (data: Partial<InventoryItem>) =>
     api.post<InventoryItem>('/inventory/inventory', data),
+
+  uploadImage: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post<{ url: string; filename: string }>('/upload/image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
