@@ -41,10 +41,12 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { loginWithPassword, loginWithWechat } from '@/services/auth';
+import { useAuthStore } from '@/stores/auth';
 
 const username = ref('');
 const password = ref('');
 const loading = ref(false);
+const auth = useAuthStore();
 
 async function handleLogin() {
   if (!username.value || !password.value) {
@@ -54,6 +56,7 @@ async function handleLogin() {
   loading.value = true;
   try {
     await loginWithPassword(username.value, password.value);
+    auth.login();
     uni.switchTab({ url: '/pages/index/index' });
   } catch {
     uni.showToast({ title: '登录失败', icon: 'none' });
@@ -66,6 +69,7 @@ async function handleWechatLogin() {
   loading.value = true;
   try {
     await loginWithWechat();
+    auth.login();
     uni.switchTab({ url: '/pages/index/index' });
   } catch {
     uni.showToast({ title: '微信登录失败', icon: 'none' });

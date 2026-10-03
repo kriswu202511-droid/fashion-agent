@@ -1,8 +1,16 @@
 <template>
   <view class="dashboard">
     <view class="header">
-      <text class="title">工作台</text>
-      <text class="subtitle">AI 数字运营团队概览</text>
+      <view class="header-top">
+        <view>
+          <text class="title">工作台</text>
+          <text class="subtitle">AI 数字运营团队概览</text>
+        </view>
+        <view :class="['ws-indicator', wsConnected ? 'ws-connected' : 'ws-disconnected']">
+          <view class="ws-dot" />
+          <text class="ws-label">{{ wsConnected ? '实时' : '离线' }}</text>
+        </view>
+      </view>
     </view>
 
     <view class="stats-row">
@@ -69,8 +77,11 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 import { useAgentStore } from '@/stores/agent';
+import { useWebSocketStore } from '@/stores/websocket';
 
 const agentStore = useAgentStore();
+const wsStore = useWebSocketStore();
+const wsConnected = computed(() => wsStore.connected);
 const agents = computed(() => agentStore.agents);
 const runningCount = computed(() => agents.value.filter((a) => a.status === 'running').length);
 const idleCount = computed(() => agents.value.filter((a) => a.status === 'idle').length);
@@ -125,6 +136,48 @@ function goStyling() {
 
 .header {
   margin-bottom: 32rpx;
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.ws-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 8rpx 16rpx;
+  border-radius: 20rpx;
+  margin-top: 8rpx;
+}
+
+.ws-connected {
+  background: #f0fff4;
+}
+
+.ws-disconnected {
+  background: #f5f5f5;
+}
+
+.ws-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+}
+
+.ws-connected .ws-dot {
+  background: #52c41a;
+}
+
+.ws-disconnected .ws-dot {
+  background: #d9d9d9;
+}
+
+.ws-label {
+  font-size: 22rpx;
+  color: #666;
 }
 
 .title {

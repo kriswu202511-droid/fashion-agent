@@ -128,8 +128,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { get, post } from '@/services/api';
+import { useSessionWebSocket } from '@/composables/useSessionWebSocket';
 
 interface LivestreamSession {
   id: string;
@@ -153,6 +154,30 @@ const showCreateModal = ref(false);
 const showDetailModal = ref(false);
 const detailSession = ref<LivestreamSession | null>(null);
 const detailMessages = ref<DanmakuMessage[]>([]);
+const liveSessionId = ref('');
+
+const sessionWs = useSessionWebSocket(() => liveSessionId.value);
+
+watch(() => detailSession.value, (session) => {
+  if (session && session.status === 'live') {
+    liveSessionId.value = session.id;
+    sessionWs.connect();
+    sessionWs.on('*', (msg) => {
+      if (msg.type.startsWith('livestream.')) {
+        detailMessages.value.push({
+          id: msg.timestamp,
+          content: (msg.data.content as string) || '',
+          response: (msg.data.response as string) || '',
+          category: (msg.data.category as string) || '',
+        });
+      }
+    });
+  }
+});
+
+onUnmounted(() => {
+  liveSessionId.value = '';
+});
 
 const platforms = ['抖音', '小红书', '快手', '淘宝'];
 

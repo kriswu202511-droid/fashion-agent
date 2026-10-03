@@ -1,10 +1,25 @@
 <script setup lang="ts">
-import { onLaunch } from '@dcloudio/uni-app';
+import { onLaunch, onShow, onHide } from '@dcloudio/uni-app';
 import { useAuthStore } from './stores/auth';
+import { useWebSocketStore } from './stores/websocket';
 
 onLaunch(() => {
   const auth = useAuthStore();
   auth.checkLogin();
+  if (auth.loggedIn) {
+    useWebSocketStore().connect();
+  }
+});
+
+onShow(() => {
+  const auth = useAuthStore();
+  if (auth.loggedIn) {
+    useWebSocketStore().connect();
+  }
+});
+
+onHide(() => {
+  useWebSocketStore().disconnect();
 });
 </script>
 
