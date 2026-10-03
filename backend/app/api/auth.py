@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import create_access_token
+from app.core.logging import get_logger
 from app.database import get_db
 from app.models.billing import Subscription
 from app.models.tenant_settings import TenantSettings
@@ -11,6 +12,7 @@ from app.models.user import User
 from app.schemas.user import TokenResponse, UserCreate, UserLogin, UserResponse
 
 router = APIRouter()
+logger = get_logger(__name__)
 
 
 def hash_password(password: str) -> str:
@@ -23,10 +25,13 @@ def verify_password(password: str, hashed: str) -> bool:
 
 @router.post("/register", response_model=TokenResponse)
 async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
+    logger.info(f"Registration attempt for user: {user_data.username}")
+    
     existing = await db.execute(
         select(User).where((User.username == user_data.username) | (User.email == user_data.email))
     )
     if existing.scalar_one_or_none():
+        logger.warning(f"Registration failed: username or email already exists for {user_data.username}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="用户名或邮箱已存在")
 
     user = User(
@@ -51,19 +56,25 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     await db.refresh(user)
 
     token = create_access_token({"sub": user.id})
+    logger.info(f"User registered successfully: {user.username} (id: {user.id})")
     return TokenResponse(access_token=token, user=UserResponse.model_validate(user))
 
 
 @router.post("/login", response_model=TokenResponse)
 async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
+    logger.info(f"Login attempt for user: {credentials.username}")
+    
     result = await db.execute(select(User).where(User.username == credentials.username))
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(credentials.password, user.hashed_password):
+        logger.warning(f"Login failed: invalid credentials for {credentials.username}")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误")
 
     if not user.is_active:
+        logger.warning(f"Login failed: account disabled for {credentials.username}")
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="账号已被禁用")
 
     token = create_access_token({"sub": user.id})
+    logger.info(f"User logged in successfully: {user.username} (id: {user.id})")
     return TokenResponse(access_token=token, user=UserResponse.model_validate(user))
